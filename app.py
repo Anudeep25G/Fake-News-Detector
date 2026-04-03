@@ -3,12 +3,14 @@ import streamlit as st
 import streamlit.components.v1 as components
 import pickle
 import re
+import os
 
 # -----------------------------------------------------------------------
 # 1. LOAD MODEL & VECTORIZER
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------------------------------------------------
-model      = pickle.load(open("model/model.pkl",      "rb"))
-vectorizer = pickle.load(open("model/vectorizer.pkl", "rb"))
+model      = pickle.load(open(os.path.join(BASE_DIR, "model", "model.pkl"),      "rb"))
+vectorizer = pickle.load(open(os.path.join(BASE_DIR, "model", "vectorizer.pkl"), "rb"))
 
 if not hasattr(model, "multi_class"):
     model.multi_class = "auto"
