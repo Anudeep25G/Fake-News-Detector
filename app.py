@@ -4,16 +4,73 @@ import streamlit.components.v1 as components
 import pickle
 import re
 import os
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
 
 # -----------------------------------------------------------------------
-# 1. LOAD MODEL & VECTORIZER
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# 1. LOAD OR TRAIN MODEL
 # -----------------------------------------------------------------------
-model      = pickle.load(open(os.path.join(BASE_DIR, "model", "model.pkl"),      "rb"))
-vectorizer = pickle.load(open(os.path.join(BASE_DIR, "model", "vectorizer.pkl"), "rb"))
+BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
+model_path = os.path.join(BASE_DIR, "model", "model.pkl")
+vec_path   = os.path.join(BASE_DIR, "model", "vectorizer.pkl")
 
-if not hasattr(model, "multi_class"):
-    model.multi_class = "auto"
+def clean_text_train(text):
+    text = str(text).lower()
+    text = re.sub(r'http\S+|www\S+', '', text)
+    text = re.sub(r'\d+', '', text)
+    text = re.sub(r'[^a-z\s]', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+def remove_source_tag(text):
+    return re.sub(r'^[A-Z ,]+\(Reuters\)\s*-\s*', '', str(text))
+
+@st.cache_resource
+def load_or_train_model():  # cache_resource is safe — only runs after set_page_config
+    if os.path.exists(model_path) and os.path.exists(vec_path):
+        model      = pickle.load(open(model_path, "rb"))
+        vectorizer = pickle.load(open(vec_path,   "rb"))
+        if not hasattr(model, "multi_class"):
+            model.multi_class = "auto"
+        return model, vectorizer
+
+    # Train from scratch if pkl files not found
+    fake_path = os.path.join(BASE_DIR, "data", "Fake.csv")
+    true_path = os.path.join(BASE_DIR, "data", "True.csv")
+
+    fake = pd.read_csv(fake_path)
+    true = pd.read_csv(true_path)
+
+    fake["label"] = 0
+    true["label"] = 1
+    true["text"]  = true["text"].apply(remove_source_tag)
+
+    min_len = min(len(fake), len(true))
+    fake = fake.sample(min_len, random_state=42)
+    true = true.sample(min_len, random_state=42)
+
+    data = pd.concat([fake, true]).sample(frac=1, random_state=42).reset_index(drop=True)
+    data["title"]   = data["title"].apply(clean_text_train)
+    data["text"]    = data["text"].apply(clean_text_train)
+    data["content"] = data["title"] + " " + data["title"] + " " + data["text"]
+
+    vectorizer = TfidfVectorizer(
+        max_features=50000, stop_words="english",
+        ngram_range=(1,2), min_df=3, max_df=0.85, sublinear_tf=True
+    )
+    X = vectorizer.fit_transform(data["content"])
+    y = data["label"]
+
+    model = LogisticRegression(C=2, max_iter=1000, solver="lbfgs", random_state=42)
+    model.fit(X, y)
+
+    os.makedirs(os.path.join(BASE_DIR, "model"), exist_ok=True)
+    pickle.dump(model,      open(model_path, "wb"))
+    pickle.dump(vectorizer, open(vec_path,   "wb"))
+
+    return model, vectorizer
+
 
 # -----------------------------------------------------------------------
 # 2. CLEAN TEXT
@@ -34,6 +91,8 @@ st.set_page_config(
     page_icon="📰",
     layout="wide"
 )
+
+model, vectorizer = load_or_train_model()
 
 st.markdown("""
 <style>
@@ -481,3 +540,4 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+
