@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 📰 Verity — Fake News Detection System
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python)
@@ -175,3 +176,7 @@ Andhra Pradesh, India · 2025
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+=======
+# --Fake-News-Detector--
+A Machine Learning web app that detects fake news using NLP. Built with Python, Streamlit, and Scikit-learn. Paste any news article to get an instant authenticity verdict.
+>>>>>>> 98c2c76174fb30cccda972c524788f463f3e90ec
